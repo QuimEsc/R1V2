@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ca">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#070c27">
+  <title>Classificació · Golden Quest</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="battle-projector.css?v=1">
+  <script defer src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+  <script defer src="config.js?v=4"></script>
+  <script defer src="firebase-config.js?v=2"></script>
+  <script defer src="battle-projector.js?v=2"></script>
+</head>
+<body>
+  <div class="projector-stars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+  <main class="projector-shell">
+    <header class="projector-header">
+      <div>
+        <span id="projectorPhase" class="projector-kicker">GOLDEN QUEST</span>
+        <h1 id="projectorTitle">Esperant una batalla…</h1>
+      </div>
+      <div class="projector-actions">
+        <strong id="projectorTimer">--:--</strong>
+        <button id="projectorFullscreen" type="button">⛶ Pantalla completa</button>
+      </div>
+    </header>
+
+    <section id="projectorEmpty" class="projector-empty">
+      <span>⚔️</span>
+      <strong>La classificació apareixerà en llançar la batalla</strong>
+      <small>Pots deixar aquesta pantalla oberta en el projector.</small>
+    </section>
+
+    <section id="projectorRanking" class="projector-ranking hidden" aria-label="Classificació en directe"></section>
+
+    <section id="projectorSeal" class="projector-seal hidden" aria-live="assertive">
+      <div class="vault-rings" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div class="vault-lock"><span>🔒</span></div>
+      <p>ELS ÚLTIMS 20 SEGONS</p>
+      <h2>La classificació queda oculta</h2>
+      <strong id="projectorSealTimer">20</strong>
+      <small>El resultat pot canviar fins a l’últim cofre.</small>
+    </section>
+  </main>
+</body>
+</html>

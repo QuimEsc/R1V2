@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ca">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111a45">
+  <title>Demo de geometria · Missió Mates</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800;900&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=5">
+  <script defer src="geometry-editor.js?v=1"></script>
+</head>
+<body class="theme-space">
+  <main class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="demo.html"><span class="brand-mark" aria-hidden="true">📐</span><span><strong>Laboratori geomètric</strong><small>Demo sense guardar dades</small></span></a>
+      <a class="teacher-link" href="demo.html">Tornar</a>
+    </header>
+    <section class="exercise-screen">
+      <article class="exercise-card game-card">
+        <header class="exercise-header">
+          <a class="back-button" href="demo.html">← Demo</a>
+          <div class="exercise-meta"><span>PROVA L'EDITOR</span><strong>Construcció curricular</strong></div>
+          <div class="help-counter">📐</div>
+        </header>
+        <div class="exercise-body">
+          <div class="question-zone">
+            <p class="eyebrow">EL TEU REPTE</p>
+            <div class="question-content"><p>Construeix un rectangle de <strong>4 unitats per 3 unitats</strong>. Marca els quatre vèrtexs seguint el contorn.</p></div>
+          </div>
+          <section class="geometry-editor" aria-labelledby="geometryEditorTitle">
+            <div class="geometry-editor-heading">
+              <div><strong id="geometryEditorTitle">Construeix en la quadrícula</strong><span>Prem els punts en ordre. S'ajusten automàticament a la quadrícula.</span></div>
+              <span id="geometryPointCount" class="geometry-point-count">0 de 4 punts</span>
+            </div>
+            <svg id="geometryCanvas" class="geometry-canvas" viewBox="0 0 440 440" role="application" tabindex="0"></svg>
+            <div class="geometry-toolbar">
+              <button id="geometryUndoButton" class="secondary-button compact" type="button">↶ Desfer</button>
+              <button id="geometryClearButton" class="secondary-button compact" type="button">Netejar</button>
+            </div>
+          </section>
+          <div id="demoResult" class="feedback-panel result-panel hidden"><span class="feedback-icon">✓</span><div><strong>Figura preparada</strong><p>En l'activitat real s'enviarien les coordenades i el professor veuria este mateix dibuix en seguiment.</p></div></div>
+        </div>
+      </article>
+    </section>
+  </main>
+  <script>
+    window.addEventListener("DOMContentLoaded", function () {
+      window.GameGeometry.start({
+        canvas: document.getElementById("geometryCanvas"),
+        undoButton: document.getElementById("geometryUndoButton"),
+        clearButton: document.getElementById("geometryClearButton"),
+        counter: document.getElementById("geometryPointCount"),
+        type: "POLYGON",
+        config: { requiredPoints: 4, shape: "RECTANGLE", width: 4, height: 3 },
+        onChange: function (change) { document.getElementById("demoResult").classList.toggle("hidden", !change.complete); }
+      });
+    });
+  </script>
+</body>
+</html>

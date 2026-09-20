@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="ca">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111a45">
+  <meta name="description" content="Missions gamificades de reforç de matemàtiques per a 1r d'ESO">
+  <title>Missió Base · Reforç matemàtic</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800;900&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=9">
+  <link rel="stylesheet" href="battle.css?v=2">
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['\\(', '\\)'], ['$', '$']],
+        displayMath: [['\\[', '\\]'], ['$$', '$$']],
+        processEscapes: true
+      },
+      options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'] },
+      chtml: { scale: 1.06 }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+  <script defer src="config.js?v=4"></script>
+  <script defer src="firebase-config.js?v=2"></script>
+  <script defer src="reforc-core.js?v=3"></script>
+  <script defer src="demo-data.js?v=4"></script>
+  <script defer src="demo-reforc.js?v=2"></script>
+  <script defer src="data-service.js?v=5"></script>
+  <script defer src="math-render.js?v=3"></script>
+  <script defer src="geometry-editor.js?v=1"></script>
+  <script defer src="firebase-service.js?v=10"></script>
+  <script defer src="battle-service.js?v=3"></script>
+  <script defer src="app.js?v=18"></script>
+  <script defer src="battle-student.js?v=2"></script>
+</head>
+<body class="theme-space">
+  <div class="world" aria-hidden="true">
+    <span class="star star-a"></span>
+    <span class="star star-b"></span>
+    <span class="star star-c"></span>
+    <span class="planet planet-a"></span>
+    <span class="planet planet-b"></span>
+    <span class="cloud cloud-a"></span>
+    <span class="cloud cloud-b"></span>
+  </div>
+
+  <main id="app" class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="Inici de Missió Base">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 64 64" role="img">
+            <path d="M37 5c9 4 16 11 20 20L40 42 22 24 37 5Z" fill="currentColor"/>
+            <circle cx="40" cy="22" r="5" fill="#bff4ff"/>
+            <path d="m22 29-9 3-6 9 15-2m13 3-3 9-9 6 2-15" fill="#ff8a5b"/>
+            <path d="m17 44-8 11 11-7" fill="#ffd166"/>
+          </svg>
+        </span>
+        <span>
+          <strong>Missió Base</strong>
+          <small id="brandSubtitle">Agència espacial</small>
+        </span>
+      </a>
+      <div class="top-actions">
+        <a id="teacherLink" class="teacher-link" href="seguiment.html" title="Obrir el seguiment docent">Seguiment</a>
+        <button id="soundButton" class="icon-button" type="button" aria-label="Activar o desactivar sons" aria-pressed="false">🔈</button>
+      </div>
+    </header>
+
+    <section id="setupNotice" class="setup-notice hidden" role="status">
+      <strong>Falta connectar Apps Script.</strong>
+      <span>Pots provar la web ara amb <a href="?demo=1">el mode demostració</a> o seguir la guia de configuració.</span>
+    </section>
+
+    <section id="loginScreen" class="screen login-screen">
+      <article class="login-card game-card">
+        <div class="mission-patch" aria-hidden="true">
+          <span class="patch-ring"></span>
+          <span class="patch-icon">🚀</span>
+        </div>
+        <p class="eyebrow">CENTRE DE CONTROL</p>
+        <h1>La missió està preparada</h1>
+        <p class="login-copy">Tria el teu nom i entra. No necessites contrasenya.</p>
+
+        <form id="loginForm" class="login-form">
+          <label for="studentSelect">Qui eres?</label>
+          <div class="select-wrap">
+            <select id="studentSelect" required disabled>
+              <option value="">Carregant tripulació…</option>
+            </select>
+          </div>
+          <button id="enterButton" class="primary-button" type="submit" disabled>
+            <span>Entrar en la missió</span>
+            <span aria-hidden="true">→</span>
+          </button>
+        </form>
+
+        <div class="login-status">
+          <span class="status-dot"></span>
+          <span id="connectionText">Connectant amb la base…</span>
+        </div>
+      </article>
+
+      <aside class="launch-visual" aria-label="Il·lustració de la missió">
+        <div class="launch-orbit orbit-one"></div>
+        <div class="launch-orbit orbit-two"></div>
+        <div class="mascot mascot-float">
+          <span class="mascot-antenna"></span>
+          <span class="mascot-face"><i></i><i></i><b></b></span>
+          <span class="mascot-body">π</span>
+        </div>
+        <div class="launch-platform"></div>
+        <p><strong>UNITAT M-01</strong><span>Preparada per a explorar</span></p>
+      </aside>
+    </section>
+
+    <section id="missionScreen" class="screen mission-screen hidden">
+      <aside class="player-panel game-card">
+        <div class="player-heading">
+          <button id="playerAvatar" class="player-avatar avatar-sprite avatar-locked" type="button" aria-label="Obrir el perfil. Completa la primera missió per triar avatar">?</button>
+          <div>
+            <span class="eyebrow">AGENT</span>
+            <h2 id="playerName">—</h2>
+          </div>
+          <button id="logoutButton" class="mini-button" type="button">Eixir</button>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-box">
+            <span>⚡ Energia</span>
+            <strong id="energyValue">0</strong>
+          </div>
+          <div class="stat-box">
+            <span>🔥 Ratxa</span>
+            <strong id="streakValue">0</strong>
+          </div>
+        </div>
+
+        <div class="progress-block">
+          <div class="progress-label">
+            <span>Progrés actual</span>
+            <strong id="progressText">0%</strong>
+          </div>
+          <div class="progress-track"><span id="progressBar"></span></div>
+        </div>
+
+        <section class="badge-shelf">
+          <div class="panel-title">
+            <h3>Insígnies</h3>
+            <span id="badgeCount">0</span>
+          </div>
+          <div id="badgeList" class="badge-list">
+            <span class="empty-mini">Encara no n'hi ha</span>
+          </div>
+        </section>
+
+        <section class="class-goal">
+          <div class="panel-title">
+            <h3 id="classGoalTitle">Energia de la classe</h3>
+            <span id="classGoalValue">0/100</span>
+          </div>
+          <div class="goal-visual">
+            <div class="goal-core"><span id="goalCore">0%</span></div>
+            <div class="goal-beam"><span id="classGoalBar"></span></div>
+          </div>
+          <p>Les missions individuals fan avançar tot l'equip.</p>
+        </section>
+      </aside>
+
+      <section class="journey-panel game-card">
+        <header class="journey-header">
+          <div>
+            <p class="eyebrow" id="journeyEyebrow">TRIMESTRE 1 · SECTOR ORBITAL</p>
+            <h1 id="journeyTitle">Ruta de missions</h1>
+            <p id="journeyDescription">Avança punt per punt i recupera l'energia de la base.</p>
+          </div>
+          <div class="route-legend" aria-label="Llegenda">
+            <span><i class="done"></i> Superada</span>
+            <span><i class="current"></i> Actual</span>
+            <span><i class="locked"></i> Bloquejada</span>
+          </div>
+        </header>
+
+        <div id="missionMap" class="mission-map" aria-label="Recorregut de missions"></div>
+
+        <div id="currentMissionSummary" class="current-mission-summary">
+          <div class="summary-icon" aria-hidden="true">🛰️</div>
+          <div>
+            <span class="eyebrow">PRÒXIMA MISSIÓ</span>
+            <h2 id="currentMissionTitle">Carregant…</h2>
+            <p id="currentMissionDescription">Espera un moment.</p>
+          </div>
+          <button id="openExerciseButton" class="primary-button compact" type="button" disabled>
+            Començar <span aria-hidden="true">→</span>
+          </button>
+        </div>
+      </section>
+    </section>
+
+    <section id="exerciseScreen" class="screen exercise-screen hidden" aria-live="polite">
+      <article class="exercise-card game-card">
+        <header class="exercise-header">
+          <button id="backToMapButton" class="back-button" type="button">← Mapa</button>
+          <div class="exercise-meta">
+            <span id="exerciseMissionLabel">MISSIÓ</span>
+            <strong id="exerciseStepLabel">Repte 1 de 5</strong>
+          </div>
+          <div class="help-counter">💡 <span id="helpCounter">0</span></div>
+        </header>
+
+        <div class="exercise-body">
+          <aside id="mechanicalGuide" class="mechanical-guide" aria-labelledby="mechanicalGuideTitle">
+            <div class="guide-badge">COM HO FAIG?</div>
+            <div>
+              <h2 id="mechanicalGuideTitle">Mira el model i repeteix</h2>
+              <p id="mechanicalRule">Carregant la regla…</p>
+              <div id="mechanicalExample" class="mechanical-example math-content"></div>
+            </div>
+          </aside>
+          <div class="question-zone">
+            <p class="eyebrow">EL TEU REPTE</p>
+            <div id="questionContent" class="math-content question-content"></div>
+          </div>
+
+          <form id="answerForm" class="answer-zone">
+            <div id="standardAnswerFields">
+              <div id="procedureNotice" class="procedure-notice hidden" role="note">
+                <span aria-hidden="true">🧩</span>
+                <div><strong>Procediment obligatori</strong><small id="procedureNoticeText">Escriu l’operació inicial, els passos i el resultat final.</small></div>
+              </div>
+              <label id="answerInputLabel" for="answerInput">Escriu la resposta</label>
+              <textarea id="answerInput" rows="5" maxlength="12000" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Pots escriure els passos ací…"></textarea>
+              <div id="mathPreviewWrap" class="math-preview-wrap hidden">
+                <span>Vista matemàtica</span>
+                <div id="mathPreview" class="math-content"></div>
+              </div>
+            </div>
+            <section id="geometryEditor" class="geometry-editor hidden" aria-labelledby="geometryEditorTitle">
+              <div class="geometry-editor-heading">
+                <div>
+                  <strong id="geometryEditorTitle">Construeix en la quadrícula</strong>
+                  <span>Prem els punts en l'ordre indicat. S'ajusten automàticament a la quadrícula.</span>
+                </div>
+                <span id="geometryPointCount" class="geometry-point-count">0 de 0 punts</span>
+              </div>
+              <svg id="geometryCanvas" class="geometry-canvas" viewBox="0 0 440 440" role="application" tabindex="0"></svg>
+              <div class="geometry-toolbar">
+                <button id="geometryUndoButton" class="secondary-button compact" type="button">↶ Desfer</button>
+                <button id="geometryClearButton" class="secondary-button compact" type="button">Netejar</button>
+              </div>
+            </section>
+            <div class="answer-actions">
+              <button id="hintButton" class="secondary-button" type="button">💡 Necessite ajuda</button>
+              <button id="submitButton" class="primary-button" type="submit">Enviar resposta <span>→</span></button>
+            </div>
+          </form>
+
+          <div id="hintPanel" class="feedback-panel hint-panel hidden">
+            <span class="feedback-icon">💡</span>
+            <div>
+              <strong id="hintTitle">Pista</strong>
+              <p id="hintText" class="math-content"></p>
+              <p id="hintQuestion" class="hint-question"></p>
+            </div>
+          </div>
+
+          <div id="resultPanel" class="feedback-panel result-panel hidden">
+            <span id="resultIcon" class="feedback-icon">✓</span>
+            <div>
+              <strong id="resultTitle">Resposta guardada</strong>
+              <p id="resultText" class="math-content"></p>
+              <button id="nextExerciseButton" class="primary-button compact" type="button">Continuar <span>→</span></button>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <section id="battleArena" class="battle-arena hidden" aria-live="polite">
+    <div class="battle-sky" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+    <header class="battle-topbar">
+      <div><span class="battle-kicker">GOLDEN QUEST</span><h1 id="battleTitle">Batalla matemàtica</h1></div>
+      <div class="battle-own-score"><span>El teu or</span><strong id="battleOwnGold">0</strong><i>◆</i></div>
+      <div id="battleTimer" class="battle-timer">07:00</div>
+    </header>
+
+    <div class="battle-layout">
+      <main class="battle-stage">
+        <section id="battleCountdown" class="battle-countdown">
+          <span class="crossed-swords">⚔️</span>
+          <p>Prepara't</p>
+          <strong id="battleCountdownNumber">7</strong>
+          <small>Les preguntes i solucions ja estan carregades</small>
+        </section>
+
+        <section id="battleQuestionScreen" class="battle-question-screen hidden">
+          <div class="battle-question-meta"><span id="battleQuestionLevel">MIXT</span><strong id="battleQuestionProgress">Pregunta 1</strong></div>
+          <div id="battleQuestion" class="battle-question math-content"></div>
+          <form id="battleAnswerForm" class="battle-answer-form">
+            <div id="battleOptionGrid" class="battle-option-grid hidden"></div>
+            <div id="battleTextAnswerWrap" class="battle-text-answer">
+              <label for="battleAnswerInput">Resultat</label>
+              <input id="battleAnswerInput" type="text" inputmode="decimal" autocomplete="off" maxlength="100">
+              <button class="battle-submit" type="submit">Comprovar</button>
+            </div>
+          </form>
+        </section>
+
+        <section id="battleChestScreen" class="battle-chest-screen hidden">
+          <p class="battle-kicker">RESPOSTA CORRECTA</p>
+          <h2>Tria un cofre</h2>
+          <div class="battle-chests">
+            <button class="battle-chest" type="button" data-chest="0"><span>?</span></button>
+            <button class="battle-chest" type="button" data-chest="1"><span>?</span></button>
+            <button class="battle-chest" type="button" data-chest="2"><span>?</span></button>
+          </div>
+          <small>L'atzar pot canviar-ho tot</small>
+        </section>
+
+        <section id="battleEffectScreen" class="battle-effect-screen hidden">
+          <span id="battleEffectIcon">✨</span>
+          <h2 id="battleEffectTitle">Sorpresa!</h2>
+          <p id="battleEffectText"></p>
+        </section>
+
+        <section id="battlePenalty" class="battle-penalty hidden">
+          <div class="trap-cage" aria-hidden="true"><i></i><i></i><i></i><span>⏳</span></div>
+          <p>Has caigut en una trampa</p>
+          <strong id="battlePenaltyTime">10</strong>
+          <small id="battlePenaltyHint">Torna a llegir els signes.</small>
+        </section>
+
+        <section id="battleResults" class="battle-results hidden">
+          <p class="battle-kicker">FINAL DE LA BATALLA</p>
+          <h2>El tresor ha decidit</h2>
+          <div id="battleOwnFinalPosition" class="battle-own-final-position"></div>
+          <div id="battlePodium" class="battle-podium"></div>
+          <div id="battleCapturePanel" class="battle-capture-panel hidden">
+            <h3 id="battleCaptureTitle">Tria un avatar capturat</h3>
+            <p>El préstec dura 7 dies. Les cartes no mostren de qui és cada avatar.</p>
+            <div id="battleCaptureCards" class="battle-capture-cards"></div>
+          </div>
+          <button id="battleLeaveButton" class="primary-button" type="button">Tornar a les missions</button>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="battleTargetDialog" class="battle-target-dialog">
+      <p class="battle-kicker">TRIA UN CONTRINCANT</p>
+      <h2 id="battleTargetTitle">A qui vols furtar?</h2>
+      <div id="battleTargetList" class="battle-target-list"></div>
+      <button id="battleCancelTarget" class="secondary-button" type="button">Cancel·lar</button>
+    </dialog>
+
+    <dialog id="battleDuelDialog" class="battle-duel-dialog">
+      <div class="duel-flash" aria-hidden="true">VS</div>
+      <p class="battle-kicker">DUEL DE 15 SEGONS</p>
+      <h2 id="battleDuelTitle">T'han reptat!</h2>
+      <div id="battleDuelQuestion" class="battle-question math-content"></div>
+      <form id="battleDuelForm">
+        <input id="battleDuelAnswer" type="text" autocomplete="off" maxlength="100" required>
+        <button class="battle-submit" type="submit">Respondre</button>
+      </form>
+      <strong id="battleDuelTimer">15</strong>
+    </dialog>
+  </section>
+
+  <div id="loadingOverlay" class="loading-overlay hidden" role="status" aria-live="polite">
+    <div class="loader-ship">🚀</div>
+    <strong id="loadingText">Preparant la missió…</strong>
+  </div>
+
+  <div id="toastRegion" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+
+  <dialog id="rewardDialog" class="reward-dialog">
+    <div class="reward-rays" aria-hidden="true"></div>
+    <span id="rewardIcon" class="reward-icon">🏅</span>
+    <p class="eyebrow">NOVA INSÍGNIA</p>
+    <h2 id="rewardTitle">Molt bé!</h2>
+    <p id="rewardDescription"></p>
+    <button id="closeRewardButton" class="primary-button" type="button">Continuar la missió</button>
+  </dialog>
+
+  <dialog id="profileDialog" class="profile-dialog">
+    <form method="dialog" class="dialog-close-row">
+      <button class="icon-button" aria-label="Tancar el perfil">✕</button>
+    </form>
+    <p class="eyebrow">EL TEU PERFIL</p>
+    <h2>Tria el teu avatar</h2>
+    <p>La teua elecció es guardarà per a la pròxima classe.</p>
+    <p id="avatarChangeStatus" class="avatar-change-status"></p>
+    <div id="avatarGrid" class="avatar-grid" role="listbox" aria-label="Avatars disponibles"></div>
+    <section class="profile-badges" aria-labelledby="profileBadgesTitle">
+      <div class="profile-section-title">
+        <h3 id="profileBadgesTitle">Les meues insígnies</h3>
+        <span>Col·lecció personal</span>
+      </div>
+      <div id="profileBadgeList" class="profile-badge-grid"></div>
+    </section>
+    <button id="saveAvatarButton" class="primary-button" type="button">Guardar avatar</button>
+  </dialog>
+</body>
+</html>

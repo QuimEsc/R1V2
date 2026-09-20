@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="ca">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1230">
+  <title>Seguiment · Missió Base</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800;900&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=9">
+  <link rel="stylesheet" href="seguiment.css?v=11">
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['\\(', '\\)'], ['$', '$']], displayMath: [['\\[', '\\]'], ['$$', '$$']], processEscapes: true },
+      options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'] }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+  <script defer src="config.js?v=4"></script>
+  <script defer src="firebase-config.js?v=2"></script>
+  <script defer src="reforc-core.js?v=3"></script>
+  <script defer src="demo-data.js?v=4"></script>
+  <script defer src="demo-reforc.js?v=2"></script>
+  <script defer src="data-service.js?v=5"></script>
+  <script defer src="math-render.js?v=3"></script>
+  <script defer src="firebase-service.js?v=10"></script>
+  <script defer src="battle-service.js?v=3"></script>
+  <script defer src="seguiment.js?v=12"></script>
+  <script defer src="battle-teacher.js?v=2"></script>
+  <script defer src="reforc-teacher.js?v=4"></script>
+</head>
+<body class="monitor-body theme-space">
+  <section id="teacherGate" class="teacher-gate" aria-labelledby="teacherGateTitle">
+    <article class="teacher-gate-card">
+      <div class="teacher-lock" aria-hidden="true">🔐</div>
+      <p class="eyebrow">ACCÉS DOCENT</p>
+      <h1 id="teacherGateTitle">Centre de control privat</h1>
+      <p>Introdueix la contrasenya per accedir al centre de control.</p>
+      <form id="teacherLoginForm">
+        <label for="teacherPassword">Contrasenya</label>
+        <input id="teacherPassword" type="password" autocomplete="current-password" maxlength="100" required>
+        <button id="teacherSignInButton" class="primary-button" type="submit">Entrar al seguiment</button>
+      </form>
+      <p id="teacherAuthMessage" class="teacher-auth-message" role="status" aria-live="polite"></p>
+      <a href="index.html">Tornar a la web de l’alumnat</a>
+    </article>
+  </section>
+
+  <main id="monitorApp" class="monitor-shell hidden">
+    <header class="monitor-header">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">👁</span>
+        <span><strong>Centre de control</strong><small>Seguiment de Missió Base</small></span>
+      </a>
+      <div class="monitor-header-actions">
+        <span id="firebaseState" class="connection-pill"><i></i> Connectant…</span>
+        <a class="teacher-link" href="explicacio.html" target="_blank" rel="noopener">Explicació</a>
+        <a class="teacher-link" href="index.html">Web alumnat</a>
+        <button id="teacherSignOutButton" class="teacher-link" type="button">Tancar sessió</button>
+      </div>
+    </header>
+
+    <section id="monitorSetupNotice" class="setup-notice hidden">
+      <strong>Mode de configuració.</strong>
+      <span>Configura Apps Script o obri <a href="seguiment.html?demo=1">la demostració</a>.</span>
+    </section>
+
+    <section class="monitor-summary">
+      <article class="summary-stat"><span>Actius ara</span><strong id="activeCount">0</strong><i class="green"></i></article>
+      <article class="summary-stat"><span>Treballant</span><strong id="workingCount">0</strong><i class="blue"></i></article>
+      <article class="summary-stat"><span>Necessiten ajuda</span><strong id="helpCount">0</strong><i class="amber"></i></article>
+      <article class="summary-stat"><span>Fora de pàgina / incidència</span><strong id="focusCount">0</strong><i class="pink"></i></article>
+      <article class="class-progress-card">
+        <div><span>Objectiu de classe</span><strong id="monitorGoalText">0%</strong></div>
+        <div class="progress-track"><span id="monitorGoalBar"></span></div>
+      </article>
+    </section>
+
+    <section class="mission-unlock-card game-card">
+      <div>
+        <p class="eyebrow">PROGRÉS DE LA CLASSE</p>
+        <h2 id="unlockMissionTitle">Carregant la pròxima missió…</h2>
+        <p id="unlockMissionText">El desbloqueig és global i només cal fer-lo una vegada.</p>
+      </div>
+      <button id="unlockNextMissionButton" class="primary-button" type="button">Desbloquejar missió</button>
+    </section>
+
+    <section class="class-command-card game-card" aria-labelledby="classCommandTitle">
+      <div class="class-command-heading">
+        <div>
+          <p class="eyebrow">GUIÓ ÚNIC DE LA CLASSE</p>
+          <h2 id="classCommandTitle">Explica una vegada; el sistema diferencia</h2>
+          <p id="classCommandStatus">Carregant la missió comuna…</p>
+        </div>
+        <div class="phase-ladder" aria-label="Dificultat creixent"><span>SUPORT</span><i>→</i><span>BASE</span><i>→</i><span>REPTE</span></div>
+      </div>
+      <div class="class-command-controls">
+        <label>Missió comuna<select id="classMissionSelect"></select></label>
+        <label>Nivell general<select id="classMacroLevel"><option value="1">Nivell 1 · Base</option><option value="2">Nivell 2 · Ampliació</option><option value="3">Nivell 3 · Excepcional</option></select></label>
+        <button id="projectExplanationButton" class="secondary-button" type="button">📽 Projectar explicació</button>
+        <button id="startClassActivityButton" class="primary-button" type="button">▶ Començar activitat</button>
+        <button id="forceAdvanceButton" class="danger-button" type="button">Avançar igualment</button>
+      </div>
+      <p class="class-command-note">L’avanç forçat queda marcat com <code>advanced_by_teacher</code>; no converteix els buits en competències assolides.</p>
+    </section>
+
+    <section class="teacher-guide-card game-card" aria-labelledby="teacherGuideTitle">
+      <div>
+        <p class="eyebrow">AJUDA DOCENT DE LA MISSIÓ</p>
+        <h2 id="teacherGuideTitle">Guió ràpid per explicar</h2>
+        <p id="teacherGuideObjective">Selecciona una missió comuna.</p>
+      </div>
+      <div class="teacher-guide-grid">
+        <article><strong>Què explicar</strong><p id="teacherGuideScript">—</p></article>
+        <article><strong>Exemple de pissarra</strong><p id="teacherGuideExample">—</p></article>
+        <article><strong>Errors habituals</strong><p id="teacherGuideErrors">—</p></article>
+        <article><strong>Com corregir</strong><p id="teacherGuideCorrections">—</p></article>
+        <article><strong>Criteri per avançar</strong><p id="teacherGuideAdvance">—</p></article>
+        <article><strong>Relació curricular</strong><p id="teacherGuideCurriculum">Agrupació interna pendent de validació normativa.</p></article>
+      </div>
+    </section>
+
+    <section class="battle-control-card game-card" aria-labelledby="battleControlTitle">
+      <div class="battle-control-heading">
+        <div>
+          <p class="eyebrow">GOLDEN QUEST</p>
+          <h2 id="battleControlTitle">Mode batalla</h2>
+          <p id="battleControlHelp">Tria la missió treballada. Entraran marcats els alumnes actius durant els últims 10 minuts.</p>
+        </div>
+        <button id="battleHistoryButton" class="secondary-button compact" type="button">Historial i insígnies</button>
+      </div>
+      <div class="battle-launch-controls">
+        <label for="battleMissionSelect">Missió de la batalla
+          <select id="battleMissionSelect"><option value="">Carregant missions…</option></select>
+        </label>
+        <button id="prepareDailyBattleButton" class="battle-mode-button daily" type="button"><span>⚡</span><strong>Batalla del dia</strong><small>15 preguntes · 7 minuts</small></button>
+        <button id="prepareFinalBattleButton" class="battle-mode-button final" type="button" disabled><span>🏆</span><strong>Final del sector</strong><small>4 × 5 missions · 10 minuts</small></button>
+      </div>
+      <p id="battleFinalAvailability" class="battle-availability">La batalla final apareix en seleccionar la missió 5 d'un sector.</p>
+      <div id="teacherBattleLive" class="teacher-battle-live hidden">
+        <div><span id="teacherBattlePhase">PREPARANT</span><h3 id="teacherBattleTitle">Batalla</h3></div>
+        <strong id="teacherBattleTimer">07:00</strong>
+        <div id="teacherBattleRanking" class="teacher-battle-ranking"></div>
+        <div class="teacher-battle-actions">
+          <button id="openBattleProjectorButton" class="secondary-button compact projector-button" type="button">Projectar classificació</button>
+          <button id="finishBattleButton" class="primary-button compact" type="button">Tancar i guardar ara</button>
+          <button id="clearBattleButton" class="danger-button compact" type="button">Cancel·lar partida</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="pendingProposalCard" class="pending-proposal-card game-card hidden">
+      <div><strong id="pendingProposalCount">0</strong><span>reptes extra proposats per la IA pendents de revisió</span></div>
+      <button id="reviewProposalButton" class="secondary-button" type="button">Revisar proposta</button>
+    </section>
+
+    <section id="pendingReviewCard" class="pending-proposal-card game-card hidden">
+      <div><strong id="pendingReviewCount">0</strong><span>procediments pendents de revisió docent</span></div>
+      <button id="reviewProcedureButton" class="secondary-button" type="button">Revisar procediment</button>
+    </section>
+
+    <section id="diagnosticCard" class="diagnostic-entry-card game-card">
+      <div>
+        <p class="eyebrow">DIAGNÒSTIC D’APRENENTATGE</p>
+        <h2><strong id="diagnosticCount">0</strong> blocs analitzats</h2>
+        <p id="diagnosticAverage">Encara no hi ha activitats diagnòstiques.</p>
+      </div>
+      <button id="openDiagnosticButton" class="secondary-button" type="button">Obrir diagnòstic</button>
+    </section>
+
+    <section id="assessmentCard" class="assessment-entry-card game-card">
+      <div>
+        <p class="eyebrow">NOTES I COMPETÈNCIES</p>
+        <h2>Avaluació basada en evidències</h2>
+        <p>La nota és una proposta matemàtica. L’actitud, l’assistència i l’or de la batalla es mostren a banda.</p>
+      </div>
+      <button id="openAssessmentButton" class="primary-button" type="button">Obrir avaluació</button>
+    </section>
+
+    <section class="monitor-toolbar game-card">
+      <div class="search-field">
+        <label for="searchInput">Buscar alumne</label>
+        <input id="searchInput" type="search" placeholder="Escriu un nom…">
+      </div>
+      <div class="filter-field">
+        <label for="statusFilter">Mostrar</label>
+        <select id="statusFilter">
+          <option value="ALL">Tots</option>
+          <option value="WORKING">Treballant</option>
+          <option value="NEEDS_TEACHER">Necessiten ajuda</option>
+          <option value="SUBMITTED">Resposta enviada</option>
+          <option value="INACTIVE">Inactius</option>
+        </select>
+      </div>
+      <div class="global-assign">
+        <label for="globalMissionSelect">Missió per a tota la classe</label>
+        <div>
+          <select id="globalMissionSelect"><option value="">Carregant missions…</option></select>
+          <button id="assignAllButton" class="primary-button compact" type="button">Assignar</button>
+        </div>
+      </div>
+      <button id="globalCommentButton" class="secondary-button" type="button">📣 Comentari global</button>
+    </section>
+
+    <section class="students-section">
+      <header>
+        <div><p class="eyebrow">SESSIÓ EN DIRECTE</p><h1>Alumnat</h1></div>
+        <span id="lastUpdateText">Sense dades encara</span>
+      </header>
+      <div id="studentGrid" class="student-grid"></div>
+      <div id="emptyMonitor" class="empty-monitor">
+        <span>🛰️</span>
+        <h2>Esperant la tripulació</h2>
+        <p>Les targetes apareixeran quan l'alumnat entre en una missió.</p>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="assignDialog" class="monitor-dialog">
+    <form method="dialog" class="dialog-close-row"><button class="icon-button" aria-label="Tancar">✕</button></form>
+    <p class="eyebrow">ASSIGNACIÓ INDIVIDUAL</p>
+    <h2 id="assignDialogTitle">Enviar activitat</h2>
+    <label for="questionSelect">Activitat</label>
+    <select id="questionSelect"></select>
+    <div id="questionPreview" class="dialog-preview math-content"></div>
+    <button id="confirmAssignButton" class="primary-button" type="button">Enviar com a pròxima activitat</button>
+  </dialog>
+
+  <dialog id="proposalDialog" class="monitor-dialog proposal-dialog">
+    <form method="dialog" class="dialog-close-row"><button class="icon-button" aria-label="Tancar">✕</button></form>
+    <p class="eyebrow">PROPOSTA DE LA IA · PENDENT D'APROVACIÓ</p>
+    <h2 id="proposalDialogTitle">Reforç personalitzat</h2>
+    <input id="proposalId" type="hidden">
+    <label for="proposalQuestion">Pregunta proposada</label>
+    <textarea id="proposalQuestion" rows="6"></textarea>
+    <div id="proposalMathPreview" class="dialog-preview math-content"></div>
+    <div class="proposal-fields">
+      <label>Resposta esperada<input id="proposalAnswer" type="text"></label>
+      <label>Ruta<select id="proposalRoute"><option>SUPORT</option><option>BASE</option><option>REPTE</option></select></label>
+      <label>Mètode<input id="proposalMethod" type="text"></label>
+    </div>
+    <label for="proposalExplanation">Per què el proposa</label>
+    <textarea id="proposalExplanation" rows="2" readonly></textarea>
+    <div class="dialog-actions">
+      <button id="rejectProposalButton" class="danger-button" type="button">Rebutjar</button>
+      <button id="approveProposalButton" class="primary-button" type="button">Aprovar i assignar</button>
+    </div>
+  </dialog>
+
+  <dialog id="procedureReviewDialog" class="monitor-dialog">
+    <form method="dialog" class="dialog-close-row"><button class="icon-button" aria-label="Tancar">✕</button></form>
+    <p class="eyebrow">REVISIÓ DOCENT</p>
+    <h2 id="procedureReviewTitle">Procediment pendent</h2>
+    <input id="procedureReviewId" type="hidden">
+    <label>Pregunta</label>
+    <div id="procedureReviewQuestion" class="dialog-preview math-content"></div>
+    <label>Resposta de l'alumne</label>
+    <div id="procedureReviewAnswer" class="dialog-preview math-content"></div>
+    <label>Solució model</label>
+    <div id="procedureReviewModel" class="dialog-preview math-content"></div>
+    <label for="procedureReviewComment">Comentari docent opcional</label>
+    <textarea id="procedureReviewComment" rows="2"></textarea>
+    <div class="dialog-actions review-actions">
+      <button id="markIncorrectButton" class="danger-button" type="button">Incorrecte</button>
+      <button id="markPartialButton" class="secondary-button" type="button">Parcial</button>
+      <button id="markCorrectButton" class="primary-button" type="button">Correcte</button>
+    </div>
+  </dialog>
+
+  <dialog id="commentDialog" class="monitor-dialog">
+    <form method="dialog" class="dialog-close-row"><button class="icon-button" aria-label="Tancar">✕</button></form>
+    <p class="eyebrow">MISSATGE EN DIRECTE</p>
+    <h2 id="commentDialogTitle">Enviar comentari</h2>
+    <textarea id="commentText" rows="4" maxlength="2000" placeholder="Escriu un missatge breu i concret…"></textarea>
+    <button id="sendCommentButton" class="primary-button" type="button">Enviar ara</button>
+  </dialog>
+
+  <dialog id="diagnosticDialog" class="monitor-dialog diagnostic-dialog">
+    <form method="dialog" class="dialog-close-row"><button class="icon-button" aria-label="Tancar">✕</button></form>
+    <div class="diagnostic-heading">
+      <div><p class="eyebrow">DIAGNÒSTIC IA + CORRECCIÓ LOCAL</p><h2>Com està aprenent la classe?</h2></div>
+      <label for="diagnosticRange">Període
+        <select id="diagnosticRange"><option value="7">7 dies</option><option value="31" selected>31 dies</option><option value="90">90 dies</option></select>
+      </label>
+    </div>
+    <div class="diagnostic-stats">
+      <article><span>Blocs</span><strong id="diagnosticTotalBlocks">0</strong></article>
+      <article><span>Mitjana</span><strong id="diagnosticMeanScore">—</strong></article>
+      <article><span>Reforços pendents</span><strong id="diagnosticReinforcementCount">0</strong></article>
+    </div>
+    <section class="diagnostic-section">
+      <h3>Dificultats de la classe</h3>
+      <div class="diagnostic-table-wrap"><table class="diagnostic-table"><thead><tr><th>Dificultat</th><th>Alumnes</th><th>Vegades</th><th>Confiança</th></tr></thead><tbody id="diagnosticClassBody"></tbody></table></div>
+    </section>
+    <section class="diagnostic-section">
+      <div class="diagnostic-student-heading"><h3>Informe individual</h3><select id="diagnosticStudentSelect" aria-label="Selecciona un alumne"><option value="">Tria un alumne</option></select></div>
+      <div id="diagnosticStudentDetail" class="diagnostic-student-detail"><p>Selecciona un alumne per veure la seua evolució.</p></div>
+    </section>
+  </dialog>
+
+  <dialog id="battleSetupDialog" class="monitor-dialog battle-setup-dialog">
+    <form method="dialog" class="dialog-close-row"><button class="icon-button" aria-label="Tancar">✕</button></form>
+    <p class="eyebrow">PREPARAR GOLDEN QUEST</p>
+    <h2 id="battleSetupTitle">Batalla del dia</h2>
+    <p id="battleSetupDescription">Revisa els participants abans de llançar-la.</p>
+    <div class="battle-select-row"><button id="selectAllActiveButton" class="secondary-button compact" type="button">Marcar actius</button><span id="battleSelectedCount">0 seleccionats</span></div>
+    <div id="battleParticipantList" class="battle-participant-list"></div>
+    <button id="launchBattleButton" class="primary-button" type="button">Llançar compte arrere</button>
+  </dialog>
+
+  <dialog id="battleHistoryDialog" class="monitor-dialog battle-history-dialog">
+    <form method="dialog" class="dialog-close-row"><button class="icon-button" aria-label="Tancar">✕</button></form>
+    <p class="eyebrow">SEGUIMENT DE RECOMPENSES</p>
+    <h2>Insígnies per setmana i mes</h2>
+    <div class="battle-history-table-wrap">
+      <table class="battle-history-table"><thead><tr><th>Alumne</th><th>7 dies</th><th>31 dies</th><th>Total</th><th>Batalles</th></tr></thead><tbody id="battleHistoryBody"></tbody></table>
+    </div>
+  </dialog>
+
+  <dialog id="assessmentDialog" class="monitor-dialog assessment-dialog">
+    <form method="dialog" class="dialog-close-row"><button class="icon-button" aria-label="Tancar">✕</button></form>
+    <div class="assessment-heading">
+      <div><p class="eyebrow">AVALUACIÓ CURRICULAR</p><h2>Nota, competències i informe</h2></div>
+      <div class="assessment-selectors">
+        <label>Alumne<select id="assessmentStudent"><option value="">Tria un alumne</option></select></label>
+        <label>Període<select id="assessmentPeriod"><option value="AVALUACIO">Avaluació actual</option><option value="30_DIES">Últims 30 dies</option><option value="CURS">Tot el curs</option></select></label>
+      </div>
+    </div>
+    <div id="assessmentEmpty" class="assessment-empty">Selecciona un alumne per calcular les evidències.</div>
+    <div id="assessmentContent" class="hidden">
+      <section class="grade-hero"><div><span>Nota provisional</span><strong id="suggestedGrade">—</strong><small>Pendent de validació docent</small></div><p id="assessmentEvidence">0 evidències matemàtiques</p></section>
+      <div id="competencyGrid" class="competency-grid"></div>
+      <aside id="reportRecommendation" class="report-recommendation hidden"><strong>💡 Informe recomanat</strong><p id="reportRecommendationText"></p><div><button id="dismissReportRecommendation" class="secondary-button compact" type="button">Ara no</button><button id="generateRecommendedReport" class="primary-button compact" type="button">Generar informe</button></div></aside>
+      <section class="report-actions"><div><h3>Informe amb IA</h3><p>Només es genera quan prems el botó. S’envia un resum pseudonimitzat, no el nom.</p></div><button id="generateReportButton" class="primary-button" type="button">Generar informe amb IA</button></section>
+      <article id="generatedReport" class="generated-report hidden"></article>
+      <section><h3>Historial d’informes</h3><div id="reportHistory" class="report-history"><p>Sense informes encara.</p></div></section>
+    </div>
+  </dialog>
+
+  <div id="monitorLoading" class="loading-overlay hidden"><div class="loader-ship">🛰️</div><strong id="monitorLoadingText">Preparant…</strong></div>
+  <div id="toastRegion" class="toast-region" aria-live="polite"></div>
+</body>
+</html>
