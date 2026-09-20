@@ -3,7 +3,7 @@ window.GAMIFICACIO_CONFIG = Object.freeze({
   appsScriptUrl: "https://script.google.com/macros/s/AKfycbxNVOoOC6SRLfQlYvSX3GkIGVtEiu7zbf9GU5kTn0MB4CCHyfd8MkWw0axxXhQ25GNsbg/exec",
   // Arrel pròpia: no mescla alumnes, batalles ni control amb Gamificacio.
   firebaseRoot: "gamificacio-reforc-v2",
-  // Firebase es manté desactivat fins que les regles V2 siguen validades i publicades.
+  // Firebase V2 validat i actiu des del 20/09/2026.
   firebaseEnabled: true,
   groupId: "GRUP-1ESO-BASE",
   schemaMode: "V2",
