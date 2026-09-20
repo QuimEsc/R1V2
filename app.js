@@ -309,7 +309,16 @@
 
   function renderMap() {
     dom.missionMap.innerHTML = "";
-    const missions = state.missions.length ? state.missions : [{ missionId: "END", title: "Sense missions", status: "LOCKED", icon: "🔒" }];
+    const allMissions = state.missions.length ? state.missions : [{ missionId: "END", title: "Sense missions", status: "LOCKED", icon: "🔒" }];
+    const activeSectorId = String((state.sector && state.sector.sectorId)
+      || (state.currentMission && state.currentMission.sectorId)
+      || "");
+    const sectorMissions = activeSectorId
+      ? allMissions.filter((mission) => String(mission.sectorId || "") === activeSectorId)
+      : [];
+    const activeMissionIndex = Math.max(0, allMissions.findIndex((mission) => mission.status === "CURRENT"));
+    const sectorStart = Math.floor(activeMissionIndex / 5) * 5;
+    const missions = sectorMissions.length ? sectorMissions : allMissions.slice(sectorStart, sectorStart + 5);
     const currentIndex = Math.max(0, missions.findIndex((item) => item.status === "CURRENT"));
     const patterns = [-78, 52, -42, 74, -65, 38, -24];
     missions.forEach((mission, index) => {
@@ -327,7 +336,8 @@
       button.style.setProperty("--node-mobile-y", `${mobileY}px`);
       button.style.setProperty("--node-mobile-x", `${mobileX}px`);
       button.disabled = status === "locked";
-      button.innerHTML = `<span class="node-orb">${mission.status === "DONE" ? "✓" : (mission.icon || "◆")}</span><strong>${window.GameMath.escapeHtml(mission.title)}</strong><small>Missió ${index + 1}</small>`;
+      const missionNumber = Number(mission.order || 0) || (sectorStart + index + 1);
+      button.innerHTML = `<span class="node-orb">${mission.status === "DONE" ? "✓" : (mission.icon || "◆")}</span><strong>${window.GameMath.escapeHtml(mission.title)}</strong><small>Missió ${missionNumber}</small>`;
       if (status === "current") button.addEventListener("click", openExercise);
       dom.missionMap.appendChild(button);
     });
