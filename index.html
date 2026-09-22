@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://script.google.com">
   <link rel="preconnect" href="https://script.googleusercontent.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800;900&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=10">
+  <link rel="stylesheet" href="styles.css?v=11">
   <link rel="stylesheet" href="battle.css?v=2">
   <script>
     window.MathJax = {
@@ -37,7 +37,7 @@
   <script defer src="geometry-editor.js?v=1"></script>
   <script defer src="firebase-service.js?v=10"></script>
   <script defer src="battle-service.js?v=3"></script>
-  <script defer src="app.js?v=20"></script>
+  <script defer src="app.js?v=21"></script>
   <script defer src="battle-student.js?v=2"></script>
 </head>
 <body class="theme-space">
@@ -118,6 +118,23 @@
         <div class="launch-platform"></div>
         <p><strong>UNITAT M-01</strong><span>Preparada per a explorar</span></p>
       </aside>
+    </section>
+
+    <section id="diagnosticScreen" class="screen diagnostic-screen hidden" aria-live="polite">
+      <article class="diagnostic-card game-card">
+        <p class="eyebrow">ABANS DE COMENÇAR</p>
+        <h1>Preparem els teus exercicis</h1>
+        <p>Farem unes activitats curtes per triar exercicis que t'ajuden a avançar.</p>
+        <p id="diagnosticProgress" class="diagnostic-progress"></p>
+        <div id="diagnosticQuestion" class="question-content math-content"></div>
+        <div id="diagnosticHint" class="diagnostic-hint hidden" role="status"></div>
+        <form id="diagnosticForm" class="diagnostic-form">
+          <label for="diagnosticAnswer">Escriu la resposta</label>
+          <input id="diagnosticAnswer" type="text" maxlength="1000" autocomplete="off" autocapitalize="off" spellcheck="false" required>
+          <button id="diagnosticSubmit" class="primary-button" type="submit">Continuar <span aria-hidden="true">→</span></button>
+        </form>
+        <p id="diagnosticMessage" class="diagnostic-message hidden" role="alert"></p>
+      </article>
     </section>
 
     <section id="missionScreen" class="screen mission-screen hidden">

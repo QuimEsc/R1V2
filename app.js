@@ -20,6 +20,7 @@
   const state = {
     student: null,
     sessionId: "",
+    diagnostic: null,
     trimester: config.defaultTrimester,
     missions: [],
     sector: null,
@@ -52,7 +53,8 @@
 
   function cacheDom() {
     [
-      "setupNotice", "loginScreen", "missionScreen", "exerciseScreen", "loginForm", "studentSelect", "enterButton", "teacherLink",
+      "setupNotice", "loginScreen", "diagnosticScreen", "missionScreen", "exerciseScreen", "loginForm", "studentSelect", "enterButton", "teacherLink",
+      "diagnosticProgress", "diagnosticQuestion", "diagnosticHint", "diagnosticForm", "diagnosticAnswer", "diagnosticSubmit", "diagnosticMessage",
       "connectionText", "playerAvatar", "playerName", "logoutButton", "energyValue", "streakValue", "progressText",
       "progressBar", "badgeCount", "badgeList", "classGoalTitle", "classGoalValue", "classGoalBar", "goalCore",
       "journeyEyebrow", "journeyTitle", "journeyDescription", "missionMap", "currentMissionTitle",
@@ -95,6 +97,7 @@
 
   function showScreen(name) {
     dom.loginScreen.classList.toggle("hidden", name !== "login");
+    dom.diagnosticScreen.classList.toggle("hidden", name !== "diagnostic");
     dom.missionScreen.classList.toggle("hidden", name !== "mission");
     dom.exerciseScreen.classList.toggle("hidden", name !== "exercise");
     dom.teacherLink.classList.toggle("hidden", name !== "login");
@@ -156,9 +159,17 @@
   async function login(studentId) {
     setLoading(true, "Obrint la teua ruta…");
     try {
-      const data = await window.GameData.call("bootstrap", { studentId });
+      const data = await window.GameData.call("bootstrap", { studentId, ...(state.student && state.student.studentId === studentId && state.sessionId ? { sessionId: state.sessionId } : {}) });
       state.student = data.student;
       state.sessionId = data.sessionId;
+      sessionStorage.setItem(STUDENT_KEY, studentId);
+      if (data.requireDiagnostic) {
+        state.diagnostic = data.diagnostic || { available: false, message: "No s'ha pogut preparar l'activitat. Avisa el professor." };
+        renderDiagnostic();
+        showScreen("diagnostic");
+        return;
+      }
+      state.diagnostic = null;
       state.trimester = data.trimester || config.defaultTrimester;
       state.missions = data.missions || [];
       state.sector = data.sector || null;
@@ -175,7 +186,6 @@
       state.helpCount = Number((state.currentExercise && state.currentExercise.helpCount) || 0);
       state.submittedExerciseId = "";
       state.liveWarningShown = false;
-      sessionStorage.setItem(STUDENT_KEY, studentId);
       prepareFocusSession(studentId);
       applyTheme(state.trimester);
       renderMissionScreen();
@@ -199,7 +209,6 @@
         state.helpCount = Math.max(state.helpCount, Number(previous.helpCount || 0));
       }
       if (window.GameBattleStudent) window.GameBattleStudent.setStudent(state.student);
-      if (data.arrivalPlan) toast("T'hem preparat una missió d'arribada curta per poder unir-te a la classe.", "good", 8000);
       window.GameLive.subscribeClassControl((control) => {
         if (!control || !state.student) return;
         const version = Number(control.activityVersion || 0);
@@ -215,6 +224,54 @@
       toast(error.message, "error", 7000);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function renderDiagnostic() {
+    const diagnostic = state.diagnostic || {};
+    const question = diagnostic.question || null;
+    const available = Boolean(diagnostic.available && question);
+    dom.diagnosticProgress.textContent = available ? `Activitat ${Number(diagnostic.answeredCount || 0) + 1}` : "";
+    dom.diagnosticQuestion.innerHTML = available ? question.questionHtml || "" : "";
+    dom.diagnosticHint.textContent = available && question.stage === "SCAFFOLDED" ? `💡 ${question.hint || "Torna a pensar com resoldre-ho."}` : "";
+    dom.diagnosticHint.classList.toggle("hidden", !dom.diagnosticHint.textContent);
+    dom.diagnosticForm.classList.toggle("hidden", !available);
+    dom.diagnosticMessage.textContent = available ? "" : (diagnostic.message || "No s'ha pogut preparar l'activitat. Avisa el professor.");
+    dom.diagnosticMessage.classList.toggle("hidden", available);
+    dom.diagnosticAnswer.value = "";
+    dom.diagnosticSubmit.disabled = !available;
+    if (available) {
+      await window.GameMath.typeset(dom.diagnosticQuestion);
+      dom.diagnosticAnswer.focus();
+    }
+  }
+
+  async function submitDiagnostic() {
+    if (state.submitting || !state.diagnostic || !state.diagnostic.question || !state.student) return;
+    const question = state.diagnostic.question;
+    const answer = dom.diagnosticAnswer.value.trim();
+    if (!answer) return;
+    state.submitting = true;
+    dom.diagnosticSubmit.disabled = true;
+    try {
+      const result = await window.GameData.call("diagnostic_submit", {
+        studentId: state.student.studentId,
+        diagnosticSessionId: state.diagnostic.diagnosticSessionId,
+        questionUid: question.questionUid,
+        stage: question.stage,
+        answer
+      });
+      state.diagnostic = result.diagnostic;
+      if (state.diagnostic && !state.diagnostic.requireDiagnostic) {
+        await login(state.student.studentId);
+      } else {
+        await renderDiagnostic();
+      }
+    } catch (error) {
+      toast(error.message, "error", 7000);
+    } finally {
+      state.submitting = false;
+      dom.diagnosticSubmit.disabled = false;
     }
   }
 
@@ -857,6 +914,7 @@
     state.retryFeedback = "";
     state.submissionId = "";
     state.sessionId = "";
+    state.diagnostic = null;
     state.pendingAvatarChoice = false;
     sessionStorage.removeItem(STUDENT_KEY);
     if (window.GameBattleStudent) window.GameBattleStudent.setStudent(null);
@@ -885,6 +943,7 @@
       event.preventDefault();
       if (dom.studentSelect.value) login(dom.studentSelect.value);
     });
+    dom.diagnosticForm.addEventListener("submit", (event) => { event.preventDefault(); submitDiagnostic(); });
     dom.openExerciseButton.addEventListener("click", openExercise);
     dom.backToMapButton.addEventListener("click", () => showScreen("mission"));
     dom.logoutButton.addEventListener("click", logout);
