@@ -321,6 +321,21 @@
     const missions = sectorMissions.length ? sectorMissions : allMissions.slice(sectorStart, sectorStart + 5);
     const currentIndex = Math.max(0, missions.findIndex((item) => item.status === "CURRENT"));
     const patterns = [-78, 52, -42, 74, -65, 38, -24];
+    const progressVisual = (mission) => {
+      const mastery = String(mission.masteryState || "");
+      const learning = String(mission.learningState || "");
+      const completion = String(mission.completionState || "");
+      if (learning === "DOMINI_ASSOLIT" || mastery === "ADQUIRIDA" || mastery === "CONSOLIDADA") {
+        return { symbol: "◕", className: "progress-mastered", label: "Bon progrés" };
+      }
+      if (completion === "COMPLETED" || (!completion && mission.status === "DONE")) {
+        return { symbol: "◑", className: "progress-completed", label: "Treball fet" };
+      }
+      if (completion === "IN_PROGRESS" || (!completion && mission.status === "CURRENT")) {
+        return { symbol: "◔", className: "progress-active", label: "En curs" };
+      }
+      return { symbol: "○", className: "progress-empty", label: "Per començar" };
+    };
     missions.forEach((mission, index) => {
       const denominator = Math.max(1, missions.length - 1);
       const x = 8 + (index / denominator) * 84;
@@ -329,15 +344,17 @@
       const mobileX = index % 2 === 0 ? -58 : 58;
       const button = document.createElement("button");
       const status = String(mission.status || "LOCKED").toLowerCase();
+      const visual = progressVisual(mission);
       button.type = "button";
-      button.className = `mission-node ${status}`;
+      button.className = `mission-node ${status} ${visual.className}`;
       button.style.setProperty("--node-x", `${x}%`);
       button.style.setProperty("--node-y", `${y}px`);
       button.style.setProperty("--node-mobile-y", `${mobileY}px`);
       button.style.setProperty("--node-mobile-x", `${mobileX}px`);
       button.disabled = status === "locked";
       const missionNumber = Number(mission.order || 0) || (sectorStart + index + 1);
-      button.innerHTML = `<span class="node-orb">${mission.status === "DONE" ? "✓" : (mission.icon || "◆")}</span><strong>${window.GameMath.escapeHtml(mission.title)}</strong><small>Missió ${missionNumber}</small>`;
+      button.innerHTML = `<span class="node-orb" aria-hidden="true">${visual.symbol}</span><strong>${window.GameMath.escapeHtml(mission.title)}</strong><small>Missió ${missionNumber}</small>`;
+      button.setAttribute("aria-label", `${mission.title}. ${visual.label}. Missió ${missionNumber}`);
       if (status === "current") button.addEventListener("click", openExercise);
       dom.missionMap.appendChild(button);
     });
@@ -419,7 +436,7 @@
     dom.mechanicalRule.textContent = explanation.rule || state.currentExercise.hint1 || "Fes el mateix procés que en l'exemple.";
     await window.GameMath.setText(dom.mechanicalExample, explanation.example || state.currentExercise.hint2 || "Mira l'exemple resolt i canvia només els nombres.");
     dom.exerciseMissionLabel.textContent = (state.currentMission && state.currentMission.title) || "MISSIÓ";
-    dom.exerciseStepLabel.textContent = `${state.currentExercise.levelLabel || "Fase"} · Exercici ${state.currentExercise.levelStep || 1} de ${state.currentExercise.levelTotal || 5}`;
+    dom.exerciseStepLabel.textContent = `Exercici ${state.currentExercise.levelStep || 1} de ${state.currentExercise.levelTotal || 5}`;
     dom.answerInput.value = state.currentExercise.savedAnswer || "";
     dom.answerInput.rows = state.currentExercise.requiresProcedure ? 5 : 2;
     dom.answerInput.classList.toggle("quick-answer", !state.currentExercise.requiresProcedure);

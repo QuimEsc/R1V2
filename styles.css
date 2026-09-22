@@ -278,7 +278,8 @@ select option { color: #111a45; background: white; }
 .mission-node:hover:not(:disabled) .node-orb { transform: scale(1.08) translateY(-3px); }
 .mission-node strong { display: block; font-size: .79rem; line-height: 1.12; }
 .mission-node small { display: block; margin-top: 4px; color: var(--muted); font-size: .68rem; }
-.mission-node.done .node-orb { color: #0e3a2d; border-color: rgba(78,225,155,.6); background: linear-gradient(145deg, #88f5c4, #3bd492); }
+.mission-node.progress-completed .node-orb { color: #fff0c9; border-color: rgba(255, 217, 131, .55); background: linear-gradient(145deg, #5d5278, #39345d); }
+.mission-node.progress-mastered .node-orb { color: #0e3a2d; border-color: rgba(78,225,155,.6); background: linear-gradient(145deg, #88f5c4, #3bd492); }
 .mission-node.current .node-orb { color: #081c31; border-color: #c6f5ff; background: linear-gradient(145deg, #c4f8ff, var(--primary-2)); box-shadow: 0 0 0 10px rgba(78,215,255,.08), 0 0 30px rgba(78,215,255,.48); animation: current-pulse 2.2s ease-in-out infinite; }
 .mission-node.current::after { content: "ARA"; display: inline-block; margin-top: 7px; padding: 3px 7px; border-radius: 20px; color: #071b2b; background: var(--accent); font-size: .58rem; font-weight: 900; letter-spacing: .09em; }
 .mission-node.locked { cursor: not-allowed; opacity: .52; }
