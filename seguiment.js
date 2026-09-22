@@ -21,6 +21,11 @@
     focusAlerts: {},
     focusStates: {},
     proposalTimer: null,
+    readinessTimer: null,
+    readinessDebounceTimer: null,
+    readinessRequestSeq: 0,
+    readinessLastRequestAt: 0,
+    liveAvailable: false,
     questionCatalogPromise: null,
     started: false,
     eventsBound: false
@@ -31,6 +36,7 @@
     [
       "monitorSetupNotice", "firebaseState", "activeCount", "workingCount", "helpCount", "focusCount", "monitorGoalText",
       "monitorGoalBar", "unlockMissionTitle", "unlockMissionText", "unlockNextMissionButton", "pendingProposalCard", "pendingProposalCount", "reviewProposalButton", "pendingReviewCard", "pendingReviewCount", "reviewProcedureButton", "diagnosticCard", "diagnosticCount", "diagnosticAverage", "openDiagnosticButton", "diagnosticDialog", "diagnosticRange", "diagnosticTotalBlocks", "diagnosticMeanScore", "diagnosticReinforcementCount", "diagnosticClassBody", "diagnosticStudentSelect", "diagnosticStudentDetail", "searchInput", "statusFilter", "globalMissionSelect", "assignAllButton", "globalCommentButton",
+      "readinessCard", "readinessMission", "readinessStatus", "readinessExplanation", "readinessCoverage", "readinessPrepared", "readinessSupport", "readinessPopulation", "readinessSupportWrap", "readinessSupportList",
       "lastUpdateText", "studentGrid", "emptyMonitor", "assignDialog", "assignDialogTitle", "questionSelect", "questionPreview",
       "confirmAssignButton", "proposalDialog", "proposalDialogTitle", "proposalId", "proposalQuestion", "proposalMathPreview",
       "proposalAnswer", "proposalRoute", "proposalMethod", "proposalExplanation", "rejectProposalButton", "approveProposalButton",
@@ -66,6 +72,11 @@
     if (state.renderTimer) window.clearInterval(state.renderTimer);
     if (state.focusExpiryTimer) window.clearTimeout(state.focusExpiryTimer);
     if (state.proposalTimer) window.clearInterval(state.proposalTimer);
+    if (state.readinessTimer) window.clearInterval(state.readinessTimer);
+    if (state.readinessDebounceTimer) window.clearTimeout(state.readinessDebounceTimer);
+    state.readinessRequestSeq++;
+    state.readinessLastRequestAt = 0;
+    state.liveAvailable = false;
     state.liveRef = null;
     state.goalRef = null;
     state.demoTimer = null;
@@ -74,6 +85,8 @@
     state.focusAlerts = {};
     state.focusStates = {};
     state.proposalTimer = null;
+    state.readinessTimer = null;
+    state.readinessDebounceTimer = null;
     state.started = false;
     if (window.GameBattleTeacher) window.GameBattleTeacher.stop();
   }
@@ -102,6 +115,7 @@
     await loadPendingReviews();
     await loadDiagnostics();
     startLive();
+    scheduleReadiness(0);
     if (window.GameBattleTeacher) window.GameBattleTeacher.start({
       getCatalog: () => state.catalog,
       getItems: () => state.items,
@@ -110,6 +124,7 @@
     });
     window.dispatchEvent(new CustomEvent("reforc:teacher-ready", { detail: { catalog: state.catalog } }));
     state.renderTimer = window.setInterval(render, 30000);
+    state.readinessTimer = window.setInterval(() => scheduleReadiness(0), 30000);
     if (!window.GameData.isDemo()) state.proposalTimer = window.setInterval(() => { loadPendingProposals(); loadPendingReviews(); loadDiagnostics(); }, 60000);
   }
 
@@ -206,7 +221,8 @@
     const base = window.GamificacioDemo.EXERCISES;
     const users = window.GamificacioDemo.USERS;
     state.items = users.map((user, index) => {
-      const exercise = (base[user.route] || base.BASE)[index % 3];
+      const routeExercises = Array.isArray(base) ? base.filter((item) => item.route === user.route) : (base[user.route] || base.BASE);
+      const exercise = routeExercises[index % routeExercises.length];
       return {
         key: `demo-${index}`,
         sessionId: `demo-${index}`,
@@ -470,6 +486,66 @@
     }
   }
 
+  function renderReadiness(data, errorMessage = "") {
+    const labels = {
+      INSUFFICIENT_EVIDENCE: ["Evidència insuficient", "Encara no tenim prou informació per orientar el canvi de missió."],
+      NEEDS_INTERVENTION: ["Cal atenció docent", "Una part significativa de l’alumnat participant necessita suport."],
+      CONSIDER_ADVANCE: ["Es pot considerar avançar", "Les evidències permeten valorar el pas a la missió següent."],
+      CONTINUE: ["Continuar la pràctica", "Convé continuar treballant i recollint evidències."]
+    };
+    const recommendation = labels[data?.recommendation] ? data.recommendation : "INSUFFICIENT_EVIDENCE";
+    const [title, explanation] = labels[recommendation];
+    const hasParticipants = Boolean(data?.participationSufficient);
+    dom.readinessCard.dataset.recommendation = recommendation;
+    dom.readinessStatus.textContent = title;
+    dom.readinessMission.textContent = data?.missionLabel || "Missió activa";
+    dom.readinessExplanation.textContent = errorMessage || (data?.presenceAvailable === false
+      ? "No hi ha un senyal fiable de participació en viu."
+      : (hasParticipants ? explanation : "No hi ha alumnat actiu detectat en aquesta sessió."));
+    dom.readinessCoverage.textContent = hasParticipants ? `${data.coveragePercent}%` : "—";
+    dom.readinessPrepared.textContent = hasParticipants ? `${data.preparedPercent}%` : "—";
+    dom.readinessSupport.textContent = hasParticipants ? `${data.needsSupportPercent}%` : "—";
+    const participating = data?.presenceAvailable ? data.participatingStudents : "—";
+    const inactive = data?.presenceAvailable ? data.inactiveNowCount : "—";
+    dom.readinessPopulation.textContent = `Participants detectats: ${participating} · No actius ara: ${inactive}`;
+    const support = Array.isArray(data?.supportStudents) ? data.supportStudents.slice(0, 4) : [];
+    dom.readinessSupportWrap.classList.toggle("hidden", !support.length);
+    dom.readinessSupportList.replaceChildren();
+    support.forEach((student) => {
+      const item = document.createElement("li");
+      item.textContent = student.name || student.studentId;
+      dom.readinessSupportList.appendChild(item);
+    });
+  }
+
+  function scheduleReadiness(delay = 900) {
+    if (state.readinessDebounceTimer) window.clearTimeout(state.readinessDebounceTimer);
+    const wait = Math.max(delay, 30000 - (Date.now() - state.readinessLastRequestAt));
+    state.readinessDebounceTimer = window.setTimeout(refreshReadiness, wait);
+  }
+
+  async function refreshReadiness() {
+    state.readinessDebounceTimer = null;
+    if (!state.started) return;
+    if (window.GameData.isDemo()) {
+      renderReadiness(null, "La demostració no inclou evidència acadèmica de producció.");
+      return;
+    }
+    const now = Date.now();
+    const activeStudentIds = state.liveAvailable
+      ? [...new Set(state.items.filter((item) => now - Number(item.updatedAt || 0) <= 10 * 60 * 1000)
+        .map((item) => String(item.studentId || "").trim()).filter(Boolean))]
+      : null;
+    const requestSeq = ++state.readinessRequestSeq;
+    state.readinessLastRequestAt = Date.now();
+    try {
+      const data = await window.GameData.call("teacher_dashboard", { activeStudentIds });
+      if (state.started && requestSeq === state.readinessRequestSeq) renderReadiness(data);
+    } catch (error) {
+      if (state.started && requestSeq === state.readinessRequestSeq) renderReadiness(null, error.message);
+    }
+  }
+
   function startLive() {
     if (window.GameData.isDemo()) {
       setConnection("online", "Demostració");
@@ -485,6 +561,9 @@
     const db = window.GameLive.getDb();
     if (!db) {
       setConnection("error", "Firebase no disponible");
+      state.liveAvailable = false;
+      state.readinessLastRequestAt = 0;
+      scheduleReadiness(0);
       return;
     }
     state.liveRef = db.ref(window.GameLive.pathFor("live"));
@@ -493,13 +572,19 @@
       const { items, removals } = normaliseLiveItems(value);
       updateFocusAlerts(items);
       state.items = items;
+      if (!state.liveAvailable) state.readinessLastRequestAt = 0;
+      state.liveAvailable = true;
       if (Object.keys(removals).length) {
         state.liveRef.update(removals).catch((error) => console.warn("No s'han pogut netejar sessions antigues.", error));
       }
       setConnection("online", "En directe");
       render();
+      scheduleReadiness();
     }, (error) => {
       setConnection("error", "Error de Firebase");
+      state.liveAvailable = false;
+      state.readinessLastRequestAt = 0;
+      scheduleReadiness(0);
       toast(error.message, "error", 7000);
     });
     state.goalRef = db.ref(window.GameLive.pathFor("classGoal"));

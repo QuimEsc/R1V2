@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800;900&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css?v=9">
-  <link rel="stylesheet" href="seguiment.css?v=11">
+  <link rel="stylesheet" href="seguiment.css?v=12">
   <script>
     window.MathJax = {
       tex: { inlineMath: [['\\(', '\\)'], ['$', '$']], displayMath: [['\\[', '\\]'], ['$$', '$$']], processEscapes: true },
@@ -28,7 +28,7 @@
   <script defer src="math-render.js?v=3"></script>
   <script defer src="firebase-service.js?v=10"></script>
   <script defer src="battle-service.js?v=3"></script>
-  <script defer src="seguiment.js?v=12"></script>
+  <script defer src="seguiment.js?v=13"></script>
   <script defer src="battle-teacher.js?v=2"></script>
   <script defer src="reforc-teacher.js?v=4"></script>
 </head>
@@ -77,6 +77,28 @@
         <div><span>Objectiu de classe</span><strong id="monitorGoalText">0%</strong></div>
         <div class="progress-track"><span id="monitorGoalBar"></span></div>
       </article>
+    </section>
+
+    <section id="readinessCard" class="readiness-card game-card" data-recommendation="INSUFFICIENT_EVIDENCE" aria-labelledby="readinessTitle">
+      <div class="readiness-heading">
+        <div>
+          <p class="eyebrow">LECTURA ACADÈMICA · MISSIÓ ACTIVA</p>
+          <h2 id="readinessTitle">Com està la classe?</h2>
+          <p id="readinessMission">Esperant dades de la missió.</p>
+        </div>
+        <strong id="readinessStatus" class="readiness-status" role="status" aria-live="polite">Evidència insuficient</strong>
+      </div>
+      <p id="readinessExplanation" class="readiness-explanation">La recomanació necessita dades de participació en la sessió.</p>
+      <div class="readiness-metrics">
+        <div><span>Cobertura d’evidència</span><strong id="readinessCoverage">—</strong></div>
+        <div><span>Preparació entre qui té evidència</span><strong id="readinessPrepared">—</strong></div>
+        <div><span>Necessiten suport ara</span><strong id="readinessSupport">—</strong></div>
+      </div>
+      <div class="readiness-footer">
+        <p id="readinessPopulation">Participants detectats: — · No actius ara: —</p>
+        <div id="readinessSupportWrap" class="readiness-support-wrap hidden"><strong>Atenció prioritària</strong><ul id="readinessSupportList"></ul></div>
+      </div>
+      <p class="readiness-note">Orientació per al docent. El canvi de missió continua sent una decisió manual.</p>
     </section>
 
     <section class="mission-unlock-card game-card">

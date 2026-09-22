@@ -207,3 +207,27 @@
   .card-actions { grid-template-columns: 1fr; }
   .dialog-actions, .review-actions { grid-template-columns: 1fr; }
 }
+
+/* Resum acadèmic docent, separat de l'objectiu d'energia de classe. */
+.readiness-card{margin:18px 0;padding:22px;border:1px solid rgba(184,195,220,.35);background:linear-gradient(135deg,rgba(29,42,79,.97),rgba(22,31,63,.97))}
+.readiness-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
+.readiness-heading h2{margin:3px 0 5px;font:700 1.35rem var(--font-display)}
+.readiness-heading p:last-child{margin:0;color:var(--muted)}
+.readiness-status{flex-shrink:0;padding:9px 13px;border-radius:999px;color:#e5ebf7;background:rgba(184,195,220,.15);font-size:.84rem}
+.readiness-card[data-recommendation="CONSIDER_ADVANCE"] .readiness-status{color:#baf4d7;background:rgba(47,177,115,.22)}
+.readiness-card[data-recommendation="CONTINUE"] .readiness-status{color:#ffe6a2;background:rgba(230,170,42,.2)}
+.readiness-card[data-recommendation="NEEDS_INTERVENTION"] .readiness-status{color:#ffd0d8;background:rgba(220,75,105,.22)}
+.readiness-explanation{margin:16px 0;color:#dce5f4;line-height:1.4}
+.readiness-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.readiness-metrics>div{padding:13px 15px;border:1px solid rgba(255,255,255,.1);border-radius:13px;background:rgba(5,12,32,.3)}
+.readiness-metrics span,.readiness-metrics strong{display:block}
+.readiness-metrics span{color:var(--muted);font-size:.74rem;font-weight:800}
+.readiness-metrics strong{margin-top:4px;font:800 1.45rem var(--font-display)}
+.readiness-footer{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-top:14px}
+.readiness-footer>p{margin:0;color:var(--muted);font-size:.82rem}
+.readiness-support-wrap{min-width:min(300px,100%)}
+.readiness-support-wrap>strong{color:#ffd5dc;font-size:.82rem}
+.readiness-support-wrap ul{display:flex;flex-wrap:wrap;gap:6px;margin:7px 0 0;padding:0;list-style:none}
+.readiness-support-wrap li{padding:5px 8px;border-radius:9px;color:#f3f5fc;background:rgba(220,75,105,.14);font-size:.78rem}
+.readiness-note{margin:14px 0 0;color:var(--muted);font-size:.78rem}
+@media(max-width:700px){.readiness-heading,.readiness-footer{flex-direction:column}.readiness-metrics{grid-template-columns:1fr}.readiness-status{align-self:flex-start}}
