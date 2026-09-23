@@ -5,6 +5,7 @@ window.GAMIFICACIO_CONFIG = Object.freeze({
   firebaseRoot: "gamificacio-reforc-v2",
   // Firebase V2 validat i actiu des del 20/09/2026.
   firebaseEnabled: true,
+  firebaseFirstEnabled: true,
   groupId: "GRUP-1ESO-BASE",
   schemaMode: "V2",
   defaultTrimester: 1,

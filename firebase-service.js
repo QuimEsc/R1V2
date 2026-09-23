@@ -150,7 +150,6 @@
       missionId: exercise.missionId || (mission && mission.missionId) || "",
       missionTitle: (mission && mission.title) || "Missió",
       questionHtml: String(exercise.questionHtml || "").slice(0, 50000),
-      expectedAnswer: String(exercise.expectedAnswer || "").slice(0, 5000),
       interactionType: String(exercise.interactionType || ""),
       answer: initialAnswer,
       answerPreviewHtml: initialPreview || (initialAnswer ? window.GameMath.studentTextToHtml(initialAnswer).slice(0, 20000) : ""),

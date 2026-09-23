@@ -2,6 +2,7 @@
   "use strict";
 
   const config = window.GAMIFICACIO_CONFIG;
+  const firebaseFirst = config.firebaseFirstEnabled === true;
   const FOCUS_KEY = "gamificacio-reforc-focus-session-v1";
   const STUDENT_KEY = "gamificacio-reforc-last-student-v1";
   const AVATARS = Array.from({ length: 15 }, (_, index) => `avatar-${String(index + 1).padStart(2, "0")}`);
@@ -126,7 +127,7 @@
   async function loadStudents() {
     dom.setupNotice.classList.toggle("hidden", window.GameData.isConfigured() || window.GameData.isDemo());
     try {
-      const data = await window.GameData.call("list_students");
+      const data = firebaseFirst ? await window.GameAcademic.listStudents() : await window.GameData.call("list_students");
       dom.studentSelect.innerHTML = '<option value="">Tria el teu nom</option>';
       (data.students || []).forEach((student) => {
         const option = document.createElement("option");
@@ -162,15 +163,18 @@
   async function login(studentId) {
     setLoading(true, "Obrint la teua ruta…");
     try {
-      const attemptQueue = window.GameAttemptQueue && window.GameAttemptQueue.create(studentId, confirmQueuedAttempt, queuedAttemptError);
+      const attemptQueue = !firebaseFirst && window.GameAttemptQueue && window.GameAttemptQueue.create(studentId, confirmQueuedAttempt, queuedAttemptError);
       if (attemptQueue && attemptQueue.count() && !(await attemptQueue.flush())) {
         throw new Error("Hi ha respostes pendents de sincronitzar. Torna a entrar quan hi haja connexió.");
       }
-      const data = await window.GameData.call("bootstrap", { studentId, ...(state.student && state.student.studentId === studentId && state.sessionId ? { sessionId: state.sessionId } : {}) });
+      const data = firebaseFirst
+        ? await window.GameAcademic.login(studentId, state.student && state.student.studentId === studentId ? state.sessionId : "")
+        : await window.GameData.call("bootstrap", { studentId, ...(state.student && state.student.studentId === studentId && state.sessionId ? { sessionId: state.sessionId } : {}) });
       state.student = data.student;
       state.sessionId = data.sessionId;
       state.attemptQueue = attemptQueue || null;
       sessionStorage.setItem(STUDENT_KEY, studentId);
+      if (firebaseFirst) window.GameAcademic.watchTeacherChanges(studentId, () => refreshBootstrap());
       if (data.requireDiagnostic) {
         state.diagnostic = data.diagnostic || { available: false, message: "No s'ha pogut preparar l'activitat. Avisa el professor." };
         renderDiagnostic();
@@ -264,13 +268,15 @@
     state.submitting = true;
     dom.diagnosticSubmit.disabled = true;
     try {
-      const result = await window.GameData.call("diagnostic_submit", {
+      const diagnosticPayload = {
         studentId: state.student.studentId,
         diagnosticSessionId: state.diagnostic.diagnosticSessionId,
         questionUid: question.questionUid,
         stage: question.stage,
         answer
-      });
+      };
+      const result = firebaseFirst ? window.GameAcademic.diagnosticSubmit(diagnosticPayload)
+        : await window.GameData.call("diagnostic_submit", diagnosticPayload);
       state.diagnostic = result.diagnostic;
       if (state.diagnostic && !state.diagnostic.requireDiagnostic) {
         await login(state.student.studentId);
@@ -562,12 +568,14 @@
     dom.hintButton.disabled = true;
     setLoading(true, state.helpCount < 2 ? "Buscant una pista…" : "Preparant una ajuda personalitzada…");
     try {
-      const data = await window.GameData.call("help", {
+      const helpPayload = {
         sessionId: state.sessionId,
         studentId: state.student.studentId,
         exerciseId: state.currentExercise.exerciseId,
         answer: currentAnswer()
-      });
+      };
+      const data = firebaseFirst ? window.GameAcademic.help(helpPayload)
+        : await window.GameData.call("help", helpPayload);
       state.helpCount = Number(data.level || state.helpCount + 1);
       if (!window.GameData.isDemo()) {
         window.GameData.call("habit_event", {
@@ -666,6 +674,56 @@
     }
   }
 
+  async function submitFirebaseAnswer(payload, answer, reason, forced) {
+    state.submitting = true;
+    dom.submitButton.disabled = true;
+    dom.hintButton.disabled = true;
+    try {
+      const data = window.GameAcademic.submit(payload);
+      syncLive(() => window.GameLive.markSubmitted(reason, answer, currentAnswerPreview()));
+      if (data.correct) syncLive(() => window.GameLive.contributeClass(payload.missionId, 2));
+      state.stats = data.stats || state.stats;
+      state.badges = data.badges || state.badges;
+      state.missions = data.missions || state.missions;
+      state.sector = data.sector || state.sector;
+      state.currentMission = data.currentMission || state.currentMission;
+      state.waitingForUnlock = Boolean(data.waitingForUnlock);
+      state.student = { ...state.student, ...(data.student || {}) };
+      state.student.avatarUnlocked = Boolean(data.avatarUnlocked || state.student.avatarUnlocked);
+      state.student.avatarChanges = Number(data.avatarChanges || 0);
+      state.student.availableAvatars = data.availableAvatars || state.student.availableAvatars || [];
+      if (data.avatarChoiceGranted) {
+        state.pendingAvatarChoice = true;
+        toast("Premi desbloquejat: ja pots triar un avatar!", "good", 5000);
+      }
+      state.classGoal = state.classGoal || data.classGoal;
+      if (data.correct && state.classGoal) state.classGoal = { ...state.classGoal,
+        value: Math.min(Number(state.classGoal.target || 100), Number(state.classGoal.value || 0) + 2) };
+      state.currentExercise = data.nextExercise || null;
+      state.exerciseBuffer = data.exerciseBuffer || [];
+      state.waitingForContent = Boolean(data.waitingForContent);
+      state.submittedExerciseId = "";
+      updateStats(state.stats, state.badges, state.classGoal);
+      toast(data.correct ? "Resposta correcta!" : (data.feedback || "Resposta guardada. Seguim practicant."),
+        data.correct ? "good" : "warning", 3000);
+      if (state.currentExercise) await openExercise();
+      else {
+        dom.resultPanel.classList.remove("hidden", "incorrect");
+        dom.resultIcon.textContent = "✓";
+        dom.resultTitle.textContent = "Activitats acabades per ara";
+        dom.resultText.textContent = "El professor pot ajudar-te a continuar.";
+        dom.nextExerciseButton.disabled = true;
+      }
+      if (forced) toast("La resposta està guardada. Pots continuar quan tornes.", "warning", 5000);
+    } catch (error) {
+      dom.submitButton.disabled = false;
+      dom.hintButton.disabled = false;
+      toast(error.message, "error", 7000);
+    } finally {
+      state.submitting = false;
+    }
+  }
+
   async function submitAnswer(reason = "normal", forced = false) {
     if (!state.currentExercise || state.submitting || state.submittedExerciseId === state.currentExercise.exerciseId) return;
     const answer = currentAnswer();
@@ -694,6 +752,10 @@
       assignmentId: state.currentExercise.assignmentId || "", answer, helpCount: state.helpCount,
       reason, ip: state.ip, submissionId: state.submissionId
     };
+    if (firebaseFirst) {
+      await submitFirebaseAnswer(payload, answer, reason, forced);
+      return;
+    }
     if (state.fastTransition && state.attemptQueue) {
       await submitBufferedAnswer(payload, answer, reason, forced);
       return;
@@ -774,7 +836,16 @@
       if (state.attemptQueue && state.attemptQueue.count() && !(await state.attemptQueue.flush())) {
         throw new Error("Hi ha respostes pendents. El mapa s'actualitzarà quan torne la connexió.");
       }
-      const data = await window.GameData.call("bootstrap", { studentId: state.student.studentId, sessionId: state.sessionId });
+      const data = firebaseFirst
+        ? await window.GameAcademic.login(state.student.studentId, state.sessionId)
+        : await window.GameData.call("bootstrap", { studentId: state.student.studentId, sessionId: state.sessionId });
+      if (data.requireDiagnostic) {
+        state.diagnostic = data.diagnostic || { available: false, message: "No s'ha pogut preparar l'activitat. Avisa el professor." };
+        renderDiagnostic();
+        showScreen("diagnostic");
+        return;
+      }
+      state.diagnostic = null;
       state.missions = data.missions || state.missions;
       state.sector = data.sector || state.sector;
       state.waitingForUnlock = Boolean(data.waitingForUnlock);
@@ -909,7 +980,9 @@
     const avatar = selected.dataset.avatar;
     dom.saveAvatarButton.disabled = true;
     try {
-      const data = await window.GameData.call("save_avatar", { studentId: state.student.studentId, avatar });
+      const data = firebaseFirst
+        ? window.GameAcademic.saveAvatar({ studentId: state.student.studentId, avatar })
+        : await window.GameData.call("save_avatar", { studentId: state.student.studentId, avatar });
       state.student.avatar = data.avatar || avatar;
       state.student.avatarUnlocked = data.avatarUnlocked !== false;
       state.student.avatarChanges = Number(data.avatarChanges || 0);
@@ -994,6 +1067,11 @@
   }
 
   async function logout() {
+    if (firebaseFirst) window.GameAcademic.stopTeacherChanges();
+    if (firebaseFirst && state.student) {
+      await Promise.race([window.GameAcademic.flush(state.student.studentId).catch(() => {}),
+        new Promise((resolve) => window.setTimeout(resolve, 1500))]);
+    }
     if (state.attemptQueue && state.attemptQueue.count()) {
       await Promise.race([state.attemptQueue.flush(), new Promise((resolve) => window.setTimeout(resolve, 1500))]);
     }
