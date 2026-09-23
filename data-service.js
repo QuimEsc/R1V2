@@ -37,8 +37,9 @@
     }
 
     const controller = new AbortController();
-    const longAction = action.includes("suggest") || action === "help" || action === "list_proposals" || action === "list_diagnostics" || action === "submit";
-    const timeout = window.setTimeout(() => controller.abort(), longAction ? 45000 : 30000);
+    const longAction = action.includes("suggest") || action === "help" || action === "list_proposals" || action === "list_diagnostics" || action === "diagnostic_submit";
+    const timeoutMs = action === "submit" ? 90000 : (longAction ? 45000 : 30000);
+    const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
     let response;
     try {
       response = await fetch(config.appsScriptUrl, {

@@ -29,6 +29,9 @@
     currentMission: null,
     currentExercise: null,
     nextExercise: null,
+    exerciseBuffer: [],
+    attemptQueue: null,
+    fastTransition: false,
     stats: {},
     badges: [],
     classGoal: null,
@@ -159,9 +162,14 @@
   async function login(studentId) {
     setLoading(true, "Obrint la teua ruta…");
     try {
+      const attemptQueue = window.GameAttemptQueue && window.GameAttemptQueue.create(studentId, confirmQueuedAttempt, queuedAttemptError);
+      if (attemptQueue && attemptQueue.count() && !(await attemptQueue.flush())) {
+        throw new Error("Hi ha respostes pendents de sincronitzar. Torna a entrar quan hi haja connexió.");
+      }
       const data = await window.GameData.call("bootstrap", { studentId, ...(state.student && state.student.studentId === studentId && state.sessionId ? { sessionId: state.sessionId } : {}) });
       state.student = data.student;
       state.sessionId = data.sessionId;
+      state.attemptQueue = attemptQueue || null;
       sessionStorage.setItem(STUDENT_KEY, studentId);
       if (data.requireDiagnostic) {
         state.diagnostic = data.diagnostic || { available: false, message: "No s'ha pogut preparar l'activitat. Avisa el professor." };
@@ -178,6 +186,8 @@
       state.currentMission = data.currentMission || null;
       state.currentExercise = data.currentExercise || null;
       state.nextExercise = null;
+      state.exerciseBuffer = Array.isArray(data.exerciseBuffer) ? data.exerciseBuffer : [];
+      state.fastTransition = Boolean(attemptQueue && Array.isArray(data.exerciseBuffer));
       state.retryFeedback = "";
       state.stats = data.stats || {};
       state.badges = data.badges || [];
@@ -491,7 +501,7 @@
     const explanation = state.currentExercise.explanation || curriculumMission || {};
     dom.mechanicalGuideTitle.textContent = explanation.title || (state.currentMission && state.currentMission.title) || "Mira el model i repeteix";
     dom.mechanicalRule.textContent = explanation.rule || state.currentExercise.hint1 || "Fes el mateix procés que en l'exemple.";
-    await window.GameMath.setText(dom.mechanicalExample, explanation.example || state.currentExercise.hint2 || "Mira l'exemple resolt i canvia només els nombres.");
+    const explanationRendering = window.GameMath.setText(dom.mechanicalExample, explanation.example || state.currentExercise.hint2 || "Mira l'exemple resolt i canvia només els nombres.");
     dom.exerciseMissionLabel.textContent = (state.currentMission && state.currentMission.title) || "MISSIÓ";
     dom.exerciseStepLabel.textContent = `Exercici ${state.currentExercise.levelStep || 1} de ${state.currentExercise.levelTotal || 5}`;
     dom.answerInput.value = state.currentExercise.savedAnswer || "";
@@ -536,14 +546,15 @@
     dom.hintPanel.classList.add("hidden");
     dom.resultPanel.classList.add("hidden");
     dom.mathPreviewWrap.classList.add("hidden");
-    await window.GameMath.setHtml(dom.questionContent, state.currentExercise.questionHtml || state.currentExercise.question || "");
+    const questionRendering = window.GameMath.setHtml(dom.questionContent, state.currentExercise.questionHtml || state.currentExercise.question || "");
     showScreen("exercise");
-    await syncLive(() => window.GameLive.publishExercise(state.currentExercise, state.currentMission, {
+    focusAnswerEditor();
+    syncLive(() => window.GameLive.publishExercise(state.currentExercise, state.currentMission, {
       route: state.currentExercise.level || state.student.route,
       levelPlan: state.currentExercise.levelPlan || "SUPORT,BASE,REPTE",
       helpCount: state.helpCount
     }));
-    focusAnswerEditor();
+    await Promise.all([explanationRendering, questionRendering]);
   }
 
   async function askForHelp() {
@@ -582,6 +593,79 @@
     }
   }
 
+  function bufferedNextExercise() {
+    const pendingIds = new Set((state.attemptQueue ? state.attemptQueue.pending() : []).map((item) => item.exerciseId));
+    while (state.exerciseBuffer.length) {
+      const candidate = state.exerciseBuffer.shift();
+      if (candidate && !pendingIds.has(candidate.exerciseId)
+        && (!state.currentExercise || candidate.exerciseId !== state.currentExercise.exerciseId)) return candidate;
+    }
+    return null;
+  }
+
+  function queuedAttemptError(error, count) {
+    if (!state.student || !count) return;
+    toast("La resposta està guardada en este dispositiu. Es tornarà a enviar quan hi haja connexió.", "warning", 7000);
+  }
+
+  function confirmQueuedAttempt(data, attempt) {
+    if (!state.student || state.student.studentId !== attempt.studentId) return;
+    if (data.stats) updateStats(data.stats, state.badges, data.classGoal || state.classGoal);
+    if (data.correct) {
+      syncLive(() => window.GameLive.contributeClass(attempt.missionId, 2));
+      toast("Resposta correcta guardada.", "good", 2800);
+    } else toast(data.feedback || "Resposta revisada. Seguim practicant.", "warning", 3500);
+    if (data.avatarChoiceGranted) {
+      state.pendingAvatarChoice = true;
+      toast("Premi desbloquejat: ja pots triar un avatar!", "good", 5000);
+    }
+    const pendingIds = new Set(state.attemptQueue.pending().map((item) => item.exerciseId));
+    const currentId = state.currentExercise && state.currentExercise.exerciseId;
+    const candidates = [data.nextExercise].concat(data.exerciseBuffer || []).filter((item) =>
+      item && item.exerciseId !== currentId && !pendingIds.has(item.exerciseId));
+    state.exerciseBuffer = candidates.filter((item, index) =>
+      candidates.findIndex((other) => other.exerciseId === item.exerciseId) === index);
+    if (data.waitingForContent && !state.exerciseBuffer.length && !state.currentExercise) {
+      dom.resultTitle.textContent = "Activitats acabades per ara";
+      dom.resultText.textContent = "El professor pot ajudar-te a continuar.";
+    }
+    if (!state.currentExercise && state.exerciseBuffer.length) {
+      state.currentExercise = bufferedNextExercise();
+      if (state.currentExercise) openExercise();
+    }
+  }
+
+  async function submitBufferedAnswer(payload, answer, reason, forced) {
+    state.submitting = true;
+    dom.submitButton.disabled = true;
+    dom.hintButton.disabled = true;
+    try {
+      state.attemptQueue.enqueue(payload);
+      const preview = currentAnswerPreview();
+      syncLive(() => window.GameLive.markSubmitted(reason, answer, preview));
+      if (isGeometryExercise()) window.GameGeometry.setDisabled(true);
+      const next = bufferedNextExercise();
+      state.currentExercise = next;
+      state.nextExercise = null;
+      state.submittedExerciseId = "";
+      if (next) await openExercise();
+      else {
+        dom.resultPanel.classList.remove("hidden", "incorrect");
+        dom.resultIcon.textContent = "…";
+        dom.resultTitle.textContent = "Preparant més activitats";
+        dom.resultText.textContent = "Les teues respostes continuen guardades.";
+        dom.nextExerciseButton.disabled = true;
+      }
+      if (forced) toast("La resposta està guardada. Pots continuar quan tornes.", "warning", 5000);
+    } catch (error) {
+      dom.submitButton.disabled = false;
+      dom.hintButton.disabled = false;
+      toast("No s'ha pogut guardar la resposta en este dispositiu. Torna-ho a intentar.", "error", 7000);
+    } finally {
+      state.submitting = false;
+    }
+  }
+
   async function submitAnswer(reason = "normal", forced = false) {
     if (!state.currentExercise || state.submitting || state.submittedExerciseId === state.currentExercise.exerciseId) return;
     const answer = currentAnswer();
@@ -604,24 +688,22 @@
       return;
     }
 
+    const payload = {
+      sessionId: state.sessionId, studentId: state.student.studentId, studentName: state.student.name,
+      exerciseId: state.currentExercise.exerciseId, missionId: state.currentExercise.missionId,
+      assignmentId: state.currentExercise.assignmentId || "", answer, helpCount: state.helpCount,
+      reason, ip: state.ip, submissionId: state.submissionId
+    };
+    if (state.fastTransition && state.attemptQueue) {
+      await submitBufferedAnswer(payload, answer, reason, forced);
+      return;
+    }
     state.submitting = true;
     dom.submitButton.disabled = true;
     dom.hintButton.disabled = true;
     if (!forced) setLoading(true, "Enviant la resposta…");
     try {
-      const data = await window.GameData.call("submit", {
-        sessionId: state.sessionId,
-        studentId: state.student.studentId,
-        studentName: state.student.name,
-        exerciseId: state.currentExercise.exerciseId,
-        missionId: state.currentExercise.missionId,
-        assignmentId: state.currentExercise.assignmentId || "",
-        answer,
-        helpCount: state.helpCount,
-        reason,
-        ip: state.ip,
-        submissionId: state.submissionId
-      });
+      const data = await window.GameData.call("submit", payload);
       await syncLive(() => window.GameLive.markSubmitted(reason, answer, currentAnswerPreview()));
       state.submittedExerciseId = state.currentExercise.exerciseId;
       state.nextExercise = data.nextExercise || null;
@@ -689,6 +771,9 @@
   async function refreshBootstrap() {
     setLoading(true, "Actualitzant el mapa…");
     try {
+      if (state.attemptQueue && state.attemptQueue.count() && !(await state.attemptQueue.flush())) {
+        throw new Error("Hi ha respostes pendents. El mapa s'actualitzarà quan torne la connexió.");
+      }
       const data = await window.GameData.call("bootstrap", { studentId: state.student.studentId, sessionId: state.sessionId });
       state.missions = data.missions || state.missions;
       state.sector = data.sector || state.sector;
@@ -696,6 +781,8 @@
       state.waitingForContent = Boolean(data.waitingForContent);
       state.currentMission = data.currentMission || null;
       state.currentExercise = data.currentExercise || null;
+      state.exerciseBuffer = Array.isArray(data.exerciseBuffer) ? data.exerciseBuffer : [];
+      state.fastTransition = Boolean(state.attemptQueue && Array.isArray(data.exerciseBuffer));
       state.stats = data.stats || state.stats;
       state.badges = data.badges || state.badges;
       state.classGoal = data.classGoal || state.classGoal;
@@ -907,10 +994,17 @@
   }
 
   async function logout() {
+    if (state.attemptQueue && state.attemptQueue.count()) {
+      await Promise.race([state.attemptQueue.flush(), new Promise((resolve) => window.setTimeout(resolve, 1500))]);
+    }
+    if (state.attemptQueue) state.attemptQueue.dispose();
     try { await window.GameLive.removeCurrent(); } catch (error) { /* Sense bloquejar l'eixida. */ }
     window.GameLive.stopListeners();
     state.student = null;
     state.currentExercise = null;
+    state.exerciseBuffer = [];
+    state.attemptQueue = null;
+    state.fastTransition = false;
     state.retryFeedback = "";
     state.submissionId = "";
     state.sessionId = "";
